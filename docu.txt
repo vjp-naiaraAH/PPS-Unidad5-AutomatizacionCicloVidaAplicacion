@@ -1,0 +1,66 @@
+## PREPARACIÓN DEL LABORATORIO
+200-> 1. Para comenzar creo una variable con mi nombre, una carpeta en la cual realizaré la activida y me coloco en ella.
+```bash
+# crea variable con tu nombre
+TuNombre=naiara
+# Creamnos carpeta
+mkdir -p Unidad5/Actividad-CicloVida
+# Nos colocamos en ella
+cd Unidad5/Actividad-CicloVida
+```
+
+201-> 2. Cmpruebo que está instalado java 11 en la máquina virtual con el comando:
+```bash
+update-alternatives --list java
+```
+
+202-> 3. Le indico al sistema que quiero usar java11
+```bash
+# elegimos java-11
+sudo update-alternatives --config java
+# elegimos java-11
+sudo update-alternatives --config javac
+```
+
+203-> Decomprimo la aplicación, para ello debo descargarla [aqui](https://github.com/jmmedinac03vjp/PuestaProduccionSegura/blob/main/Unidad5-SistemasDesplegadoAutomatizadoSoftware/Actividad-AutomatizacionCicloVidaAplicacion/files/store-app-postgree.zip) usando los siguientes comandos:
+```bash
+# coloca store-app-postgree.zip en la carpeta
+# descomprime 
+unzip store-app.zip 
+# comprueba que se ha descomprimido
+cd store-app
+```
+
+204-> Descargo los archivos [./Dockerfile](https://github.com/jmmedinac03vjp/PuestaProduccionSegura/blob/main/Unidad5-SistemasDesplegadoAutomatizadoSoftware/Actividad-AutomatizacionCicloVidaAplicacion/files/Dockerfile) y el [manifiesto de despliegue de kubernetes](https://github.com/jmmedinac03vjp/PuestaProduccionSegura/blob/main/Unidad5-SistemasDesplegadoAutomatizadoSoftware/Actividad-AutomatizacionCicloVidaAplicacion/files/store-app-k8s.yaml) en la carpeta que acabo de descomprimir.
+
+205->
+
+206->
+
+207->
+
+208->
+
+209->
+
+210->
+
+211->
+
+212->
+
+213->
+
+214->
+
+215->
+
+216->
+
+217->
+
+218->
+
+219->
+
+220->
