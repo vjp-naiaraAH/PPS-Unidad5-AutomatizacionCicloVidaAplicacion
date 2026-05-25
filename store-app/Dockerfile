@@ -5,10 +5,8 @@ FROM eclipse-temurin:11-jre
 # Directorio de trabajo dentro del contenedor en producción
 WORKDIR /app
 
-# Copia el JAR generado por Jenkins
-# Para local y Jenkins
-#COPY target/*.jar app.jar
-# Para github actions
+# Copia el .jar generado en el stage de build hacia el contenedor de runtime
+# Usa --from=build para acceder a lo construido en el stage anterior
 COPY target/*.jar app.jar
 
 # Indica el puerto por el que la aplicación escuchará dentro del contenedor
