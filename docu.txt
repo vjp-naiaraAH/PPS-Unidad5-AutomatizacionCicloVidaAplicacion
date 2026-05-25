@@ -22,7 +22,7 @@ sudo update-alternatives --config java
 sudo update-alternatives --config javac
 ```
 
-203-> Decomprimo la aplicación, para ello debo descargarla [aqui](https://github.com/jmmedinac03vjp/PuestaProduccionSegura/blob/main/Unidad5-SistemasDesplegadoAutomatizadoSoftware/Actividad-AutomatizacionCicloVidaAplicacion/files/store-app-postgree.zip) usando los siguientes comandos:
+203-> 4. Decomprimo la aplicación, para ello debo descargarla [aqui](https://github.com/jmmedinac03vjp/PuestaProduccionSegura/blob/main/Unidad5-SistemasDesplegadoAutomatizadoSoftware/Actividad-AutomatizacionCicloVidaAplicacion/files/store-app-postgree.zip) usando los siguientes comandos:
 ```bash
 # coloca store-app-postgree.zip en la carpeta
 # descomprime 
@@ -31,36 +31,359 @@ unzip store-app.zip
 cd store-app
 ```
 
-204-> Descargo los archivos [./Dockerfile](https://github.com/jmmedinac03vjp/PuestaProduccionSegura/blob/main/Unidad5-SistemasDesplegadoAutomatizadoSoftware/Actividad-AutomatizacionCicloVidaAplicacion/files/Dockerfile) y el [manifiesto de despliegue de kubernetes](https://github.com/jmmedinac03vjp/PuestaProduccionSegura/blob/main/Unidad5-SistemasDesplegadoAutomatizadoSoftware/Actividad-AutomatizacionCicloVidaAplicacion/files/store-app-k8s.yaml) en la carpeta que acabo de descomprimir.
+204-> 5. Descargo los archivos [./Dockerfile](https://github.com/jmmedinac03vjp/PuestaProduccionSegura/blob/main/Unidad5-SistemasDesplegadoAutomatizadoSoftware/Actividad-AutomatizacionCicloVidaAplicacion/files/Dockerfile) y el [manifiesto de despliegue de kubernetes](https://github.com/jmmedinac03vjp/PuestaProduccionSegura/blob/main/Unidad5-SistemasDesplegadoAutomatizadoSoftware/Actividad-AutomatizacionCicloVidaAplicacion/files/store-app-k8s.yaml) en la carpeta que acabo de descomprimir.
+6. Sudo los cambios al repositorio
 
-205->
+205-> 7. Compruebo que tengo instalado Maven con:
+```bash
+# comprobamos versión de maven
+mvn --version
+# sino tenemos instalamos
+# sudo apt udate; sudo apt install maven 
+```
 
-206->
+206-> 8. Doy permisos para ejecutar Docker a Jenkins
+```bash
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+``` 
 
-207->
+## CREAR CICLO DE VIDA COMPLETO EN EL EQUIPO LOCAL
+### Maven package: validate, compile, test, package
+207-> 1. Compruebo que tengo java 11
+```bash
+java --version
+```
 
-208->
+208-> 2. Realizamos operaciones validate, compile con maven:
+```bash
+# realizamos operaciones en maven
+mvn compile
+```
 
-209->
+209-> 3. Pasamos los test con maven:
+```bash
+# realizamos operaciones en maven
+mvn test
+```
 
-210->
+210-> 4. Realizamos operación package con maven para generar el código compilado:
+```bash
+# realizamos operaciones en maven
+mvn package
+```
 
-211->
+211-> 5. Comprobamos que no hay errores y se ha generado el artifact:
+```bash
+# listamos /target y veremos el artifact (.jar generado)  store-app-1.0.0.jar
+ls ./target
+```
 
-212->
+### Deploy: Construir imagen y levantar máquinas
+212-> 1. Creo una imágen Docker a partir de Dockerfile, empaquetando la JVM, el jar y la ocnfiguración necesaria para que la aplicación se ejecute de manera aislada y reproducible:
+```docker
+# ===== RUNTIME =====
+# Imagen solo JRE Java 11
+FROM eclipse-temurin:11-jre
 
-213->
+# Directorio de trabajo dentro del contenedor en producción
+WORKDIR /app
 
-214->
+# Copia el .jar generado en el stage de build hacia el contenedor de runtime
+# Usa --from=build para acceder a lo construido en el stage anterior
+COPY target/*.jar app.jar
 
-215->
+# Indica el puerto por el que la aplicación escuchará dentro del contenedor
+EXPOSE 8888
 
-216->
+# Comando que se ejecuta al arrancar el contenedor: ejecuta la aplicación Java empaquetada
+ENTRYPOINT ["java","-jar","app.jar"]
+```
 
-217->
+213-> Copio Dockerfile, creo la imagen y compruebo si se ha creado:
+```bash
+nano Dockerfile
+# copiamos el contenido del Dockerfile
+# Guardamos los cambios ctrl + x
+# creamos la imagen con nombre store-app
+docker build -t store-app .
+# comprobamos si se ha creado la imagen
+docker images |grep store
+```
 
-218->
+214-> Accedo a la aplicación generada haciendo clic o navegando hasta http://localhost:8888
 
-219->
+215->De esta forma, el ciclo de CI/CD se completa: Compilar → Testear → Generar el jar → Crear la imagen Docker → Desplegar el entorno con docker-compose.
+Una ve terminado este escenario:
+```bash
+docker compose down
+```
 
-220->
+## AUTOMATIZACIÓN DE CONSTRUCCIÓN CON JENKINS
+### Preparación del entorno
+216-> Cambio a java21 ya que Ejnkins usa esa versión o superior:
+```bash
+# Dejábamos el java que teníamos
+sudo update-alternatives --config java
+# Dejábamos el java que teníamos
+sudo update-alternatives --config javac
+# comprobamos java > 21
+java --version
+```
+
+217-> Arranco jenkins
+```bash
+service jenkins start
+```
+
+218-> Accedo a Jenkins usando http://localhost:8080
+
+### Checkout del repositorio
+219-> A continuación en Jenkins creo una nueva tarea a la cual le voy a poner como nombre CicloVidaJenkins y el siguiente pipeline:
+```jenkins
+pipeline {
+    agent any
+
+    stages {
+        stage('Clonar repositorio') {
+            steps {
+                git branch: 'main',
+                credentialsId: 'TuIDToken', // Tu ID definido en Jenkins
+                    url: 'https://github.com/PPSvjpOrganizacion/-PPSvjp.git'
+            }
+        }
+
+        stage('Verificar contenido') {
+            steps {
+                sh 'echo "Repositorio clonado correctamente"'
+                sh 'pwd'
+                sh 'ls -la'
+                sh 'git branch -a || true'
+            }
+        } 
+    }
+
+    post {
+        success {
+            echo 'Git clonado correctamente rectamente'
+        }
+        failure {
+            echo 'La clonación ha fallado'
+        }
+        
+    }
+}
+```
+Por así decirlo se han hecho las siguientes etapas:
++ Clonar el repositorio
++ Verifica el contenido: hago en comando listado de directorio, y mostrando ramas.
+
+
+220-> Guardo los cambios y lo ejecuto.
+Compruebo la ejecución en Tarea CicloVidaJenkins -> nºBuild -> Pipeline Overview.
+
+### Checkout del repositorio
+221-> Modifico el pipeline Tarea CicloVidaJenkins -> configurar y pego el siguiente:
+```
+pipeline {
+    agent any
+
+    stages {
+        stage('Clonar repositorio') {
+            steps {
+                git branch: 'main',
+                    credentialsId: 'b80b0d16-2974-4c29-8ff5-6434d9c184f8',
+                    url: 'https://github.com/vjp-naiaraAH/PPS-Unidad5-AutomatizacionCicloVidaAplicacion.git'
+            }
+        }
+
+        stage('Verificar contenido') {
+            steps {
+                sh 'echo "Repositorio clonado correctamente"'
+                sh 'pwd'
+                sh 'ls -la'
+                sh 'ls -la store-app || true'
+            }
+        }
+
+        stage('Test con Maven') {
+            steps {
+                dir('store-app') {  // ← Esta es la solución principal
+                    withEnv(["JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64",
+                             "PATH+JAVA=/usr/lib/jvm/java-11-openjdk-amd64/bin"]) {
+                        sh 'mvn clean test'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Tests finalizados correctamente'
+        }
+        failure {
+            echo '❌ Los tests han fallado'
+        }
+    }
+}
+```
+
+222-> Y lo compilo y no da error como se ve
+
+#### Package
+223-> Ahora hago el pipeline añadiendo el package
+```jenckins
+pipeline {
+    agent any
+
+    stages {
+        stage('Clonar repositorio') {
+            steps {
+                git branch: 'main',
+                    credentialsId: 'b80b0d16-2974-4c29-8ff5-6434d9c184f8',
+                    url: 'https://github.com/vjp-naiaraAH/PPS-Unidad5-AutomatizacionCicloVidaAplicacion.git'
+            }
+        }
+
+        stage('Verificar contenido') {
+            steps {
+                sh 'echo "✅ Repositorio clonado correctamente"'
+                sh 'pwd'
+                sh 'ls -la'
+                sh 'ls -la store-app || true'
+            }
+        }
+
+        stage('Test con Maven') {
+            steps {
+                dir('store-app') {
+                    withEnv(["JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64",
+                             "PATH+JAVA=/usr/lib/jvm/java-11-openjdk-amd64/bin"]) {
+                        sh 'mvn clean test'
+                    }
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                dir('store-app') {
+                    withEnv(["JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64",
+                             "PATH+JAVA=/usr/lib/jvm/java-11-openjdk-amd64/bin"]) {
+                        sh 'mvn package -DskipTests'   // Empaqueta sin volver a ejecutar tests
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Pipeline finalizado correctamente - Aplicación empaquetada'
+        }
+        failure {
+            echo '❌ El pipeline ha fallado'
+        }
+    }
+}
+```
+
+224-> Guardo  vuelvo a ejecutar y no da ningun fallo.
+
+225-> Voy a la ejecución y compruebo si esta generado el .jar
+
+226->
+
+227->
+
+228->
+
+229->
+#### Automatización de etapa o herramienta con Jenkins
+230-> Creo un nuevo l¡pipeline
+
+231-> le añado lo siguiente:
+```jenkins
+pipeline {
+    agent any
+
+    stages {
+        stage('Clonar repositorio') {
+            steps {
+                git branch: 'main',
+                    credentialsId: 'b80b0d16-2974-4c29-8ff5-6434d9c184f8',
+                    url: 'https://github.com/vjp-naiaraAH/PPS-Unidad5-AutomatizacionCicloVidaAplicacion.git'
+            }
+        }
+
+        stage('Verificar contenido') {
+            steps {
+                sh 'echo "✅ Repositorio clonado correctamente"'
+                sh 'pwd'
+                sh 'ls -la'
+                sh 'ls -la store-app || true'
+            }
+        }
+
+        stage('Test con Maven') {
+            steps {
+                dir('store-app') {
+                    withEnv(["JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64",
+                             "PATH+JAVA=/usr/lib/jvm/java-11-openjdk-amd64/bin"]) {
+                        sh 'mvn clean test'
+                    }
+                }
+            }
+        }
+
+        stage('Análisis de Seguridad - Dependencias') {
+            steps {
+                dir('store-app') {
+                    withEnv(["JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64",
+                             "PATH+JAVA=/usr/lib/jvm/java-11-openjdk-amd64/bin"]) {
+                        sh 'mvn org.owasp:dependency-check-maven:check -Dformat=HTML'
+                    }
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                dir('store-app') {
+                    withEnv(["JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64",
+                             "PATH+JAVA=/usr/lib/jvm/java-11-openjdk-amd64/bin"]) {
+                        sh 'mvn package -DskipTests'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            junit 'store-app/target/surefire-reports/*.xml'
+            archiveArtifacts artifacts: 'store-app/target/*.jar', fingerprint: true
+            archiveArtifacts artifacts: 'store-app/target/dependency-check-report.html', allowEmptyArchive: true
+        }
+        success {
+            echo '✅ Pipeline completado correctamente'
+        }
+        failure {
+            echo '❌ El pipeline ha fallado'
+        }
+    }
+}
+```
+
+232-> Hago clic en guardar y lo ejecuto.
+
+233->
+
+234->
+
+235->
+
+236->
+
+237->
